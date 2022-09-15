@@ -1,0 +1,1 @@
+ssh -i C:\Users\mose\PycharmProjects\PythonContest\MOMO.pem ec2-user@ec2-34-226-124-76.compute-1.amazonaws.com
