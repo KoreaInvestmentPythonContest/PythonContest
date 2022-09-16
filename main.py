@@ -2,9 +2,10 @@ import re
 from config.UrlList import *
 from config.Market import *
 from ignore.config import *
-
-
+import FinanceDataReader as fdr
+import pymysql
 from bs4 import BeautifulSoup
+import pandas as pd
 import requests
 class KoreaInvestment():
     def __init__(self):
@@ -12,44 +13,97 @@ class KoreaInvestment():
         self.market = Market_name.Market
         self.Url_list = Url_List.Url
         self.config = config()
+        self.MySqlGuest = self.config["MySqlGuest"] #host, user, password
+        self.con, self.cur =self.ConnectMySql(self.MySqlGuest["host"],self.MySqlGuest["user"],self.MySqlGuest["password"])
+        self.Dcon =self.ConnectMySqlForDataFrame(self.MySqlGuest["host"],self.MySqlGuest["user"],self.MySqlGuest["password"])
 
     def function_start(self):
-        self.for_naver_finance_news_article_add_more(self.Url_list["네이버금융_주요뉴스"])
+
+        self.get_code_list_by_market("KOSDAQ")  # 코스닥, 장내  구할려고
 
     def function_wiat(self):
         self.for_naver_finance_news_article_add_more(self.Url_list["네이버금융_주요뉴스"])
 
-        self.get_name_list_by_code()  # 코스닥, 장내  구할려고
-
-    def get_name_list_by_code(self) : #코스피,코스닥  구할려고
-        code_name_list = list()
-        aa = dict()
-        code_list_kospi = self.get_code_list_by_market("11")
-        # code_list_kosdac = self.get_code_list_by_market("12")
-        # print(f"코스닥개수:{len(code_list_kosdac)}")
-        # print(f"장내:{len(code_list_kospi)}")
-        #
-        #
-        # # Todo: 시장 종목 이름 업데이트 필요 있음
-        # Market_name.Market["Name_Code"]
 
 
 
     def get_code_list_by_market(self, market_code):
-        """
-        [시장구분값]
-          11 : 유가증권
-          12 : 코스닥시장
-          13 : 코넥스시장
-          """
-        name ="한국예탁결제원_주식정보서비스"
-        url = self.Url_list[name]
-        params = {'serviceKey': self.config[name], 'caltotMartTpcd': market_code}
+        '''
+        maket_code = "KOSPI", "KOSDAQ", "NASDAQ"
 
-        response = requests.get(url, params=params)
-        print(response.content)
-        # code_list = code_list.split(";")[:-1]
-        # return code_list
+        '회사명':'Name',
+        '종목코드':'Symbol',
+        '업종':'Sector',
+        '주요제품':'Industry',
+        '상장일':'ListingDate',
+        '결산월':'SettleMonth',
+        '대표자명':'Representative',
+        '지역':'Region',
+           '''
+        fdr_DataFrame =fdr.StockListing(market_code)
+        #DB COLUMN SIZE에 안맞는것들 삭제
+        fdr_DataFrame['ListingDate'] = fdr_DataFrame['ListingDate'].dt.strftime("%Y%m%d")
+        fdr_DataFrame['SettleMonth'] = fdr_DataFrame['SettleMonth'].str[:-1]
+        #DUP 데이터있을까봐 삭제
+        fdr_DataFrame.drop_duplicates(['Symbol'], keep='first')
+
+        #6자리 이상의 데이터가 있음 ex) 73501BB4 해당데이터 삭제
+        fdr_DataFrame.drop(fdr_DataFrame[fdr_DataFrame["Symbol"].map(len) > 6].index, inplace=True)
+
+        #DataFrame MySql Insert
+        fdr_DataFrame.to_sql(name="STOCKS", con=self.Dcon, if_exists='append', index=False)
+
+        # # Todo: 시장 종목 이름 업데이트 필요 있음
+        # Market_name.Market["Name_Code"]
+
+    import pymysql
+
+    def ConnectMySql(self,host,user,pwd):
+        con = pymysql.connect(host=host, user=user, password=pwd,
+                              db='mysql', charset='utf8')  # 한글처리 (charset = 'utf8')
+        cur = con.cursor()
+
+        return con,cur
+
+    def ConnectMySqlForDataFrame(self,host,user,pwd):
+        from sqlalchemy import create_engine
+        db_connection_str = f'mysql+pymysql://{user}:{pwd}@{host}/mysql'
+        db_connection = create_engine(db_connection_str)
+        conn = db_connection.connect()
+        return conn
+
+    def Insert(self,table_name,dict):
+        #key :col_name, value : data
+        test_dict = {'Market': 'KOSPI', 'Symbol': '006840', 'Name': 'AK홀딩스', 'Sector': '기타 금융업', 'Industry': '지주사업',
+                     'ListingDate': '19990811', 'SettleMonth': '12', 'Representative': '채형석, 이석주(각자 대표이사)',
+                     'HomePage': 'http://www.aekyunggroup.co.kr'}
+
+        insert_data = "INSERT INTO  STOCKS( Market, Symbol, Name, Sector, Industry, ListingDate, SettleMonth, Representative, HomePage)" \
+                      f"VALUES ({test_dict['Market']},{test_dict['Symbol']},{test_dict['Name']},{test_dict['Sector']},{test_dict['Industry']}," \
+                      f"{test_dict['ListingDate']},{test_dict['SettleMonth']},{test_dict['Representative']},{test_dict['HomePage']})"
+
+        temp_str = "INSERT INTO STOCKS("
+        for key, value in test_dict.items():
+            temp_str = temp_str + key + ','
+        temp_str = temp_str[:-1] + ") VALUES ("
+
+        for key, value in test_dict.items():
+            temp_str = temp_str + f"'{value}',"
+        temp_str = temp_str[:-1] + ");"
+        print(temp_str)
+
+        try:
+            self.cur.execute(temp_str)
+            self.con.commit()
+        except pymysql.Error as err:
+            print("Something went wrong: {}".format(err))
+            self.con.rollback()
+        # 데이타 Fetch
+        # for one_fetch in cur.fetchall():
+        #     print(one_fetch)  # 전체 rows
+
+        # STEP 5: DB 연결 종료
+        self.con.close()
 
 
     def get_html(self,url):
