@@ -1,0 +1,38 @@
+bcrypt @ file:///C:/Windows/Temp/abs_36kl66t_aw/croots/recipe/bcrypt_1659554334050/work
+beautifulsoup4==4.11.1
+brotlipy==0.7.0
+certifi @ file:///C:/Windows/TEMP/abs_e9b7158a-aa56-4a5b-87b6-c00d295b01fanefpc8_o/croots/recipe/certifi_1655968940823/work/certifi
+cffi @ file:///C:/Windows/Temp/abs_6808y9x40v/croots/recipe/cffi_1659598653989/work
+charset-normalizer @ file:///tmp/build/80754af9/charset-normalizer_1630003229654/work
+colorama==0.4.5
+cryptography @ file:///C:/ci/cryptography_1652101770956/work
+dataclasses==0.6
+finance-datareader==0.9.34
+greenlet==1.1.3
+idna @ file:///tmp/build/80754af9/idna_1637925883363/work
+importlib-metadata==4.12.0
+kiwipiepy==0.14.0
+kiwipiepy-model==0.14.0
+lxml==4.9.1
+numpy==1.21.6
+pandas==1.3.5
+paramiko @ file:///opt/conda/conda-bld/paramiko_1640109032755/work
+pycparser @ file:///tmp/build/80754af9/pycparser_1636541352034/work
+PyMySQL @ file:///C:/ci/pymysql_1610464946597/work
+PyNaCl @ file:///C:/Windows/Temp/abs_d5c3ajcm87/croots/recipe/pynacl_1659620667490/work
+pyOpenSSL @ file:///opt/conda/conda-bld/pyopenssl_1643788558760/work
+PySocks @ file:///C:/ci/pysocks_1594394709107/work
+python-dateutil==2.8.2
+pytz==2022.2.1
+requests @ file:///C:/ci/requests_1657735288441/work
+requests-file==1.5.1
+six @ file:///tmp/build/80754af9/six_1644875935023/work
+soupsieve==2.3.2.post1
+SQLAlchemy==1.4.41
+sshtunnel @ file:///tmp/build/80754af9/sshtunnel_1610404778147/work
+tqdm==4.64.1
+typing_extensions==4.3.0
+urllib3 @ file:///C:/Windows/TEMP/abs_65ynz4fdmi/croots/recipe/urllib3_1659110473919/work
+win-inet-pton @ file:///C:/ci/win_inet_pton_1605306165655/work
+wincertstore==0.2
+zipp==3.8.1
