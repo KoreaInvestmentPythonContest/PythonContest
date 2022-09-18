@@ -4,8 +4,9 @@ from config.Market import *
 from ignore.config import *
 import FinanceDataReader as fdr
 import pymysql
+
 from bs4 import BeautifulSoup
-import pandas as pd
+from kiwipiepy import Kiwi
 import requests
 class KoreaInvestment():
     def __init__(self):
@@ -18,12 +19,13 @@ class KoreaInvestment():
         self.Dcon =self.ConnectMySqlForDataFrame(self.MySqlGuest["host"],self.MySqlGuest["user"],self.MySqlGuest["password"])
 
     def function_start(self):
+        self.for_naver_finance_news_article_add_more(self.Url_list["네이버금융_주요뉴스"])
 
-        self.get_code_list_by_market("KOSDAQ")  # 코스닥, 장내  구할려고
 
     def function_wiat(self):
         self.for_naver_finance_news_article_add_more(self.Url_list["네이버금융_주요뉴스"])
-
+        self.select("STOCKS")
+        self.get_code_list_by_market("KOSDAQ")  # 코스닥, 장내  구할려고
 
 
 
@@ -56,7 +58,9 @@ class KoreaInvestment():
         # # Todo: 시장 종목 이름 업데이트 필요 있음
         # Market_name.Market["Name_Code"]
 
-    import pymysql
+
+    def Kiwi_morphological_analysis(self):
+        print("test")
 
     def ConnectMySql(self,host,user,pwd):
         con = pymysql.connect(host=host, user=user, password=pwd,
@@ -104,6 +108,18 @@ class KoreaInvestment():
 
         # STEP 5: DB 연결 종료
         self.con.close()
+
+    def select(self,TableName='',Market='',Symbol=''):
+        temp_str = f"SELECT * FROM {TableName} A WHERE ( '{Market}' = '' or A.Market = '{Market}')and ('{Symbol}'= '' or A.Symbol ='{Symbol}');"
+
+        try:
+            self.cur.execute(temp_str)
+            rows = self.cur.fetchall()
+            for row in rows:
+                print(row)
+
+        except pymysql.Error as err:
+            print("Something went wrong: {}".format(err))
 
 
     def get_html(self,url):
