@@ -20,6 +20,16 @@ class KoreaInvestment():
         self.Dcon =self.ConnectMySqlForDataFrame(self.MySqlGuest["host"],self.MySqlGuest["user"],self.MySqlGuest["password"])
 
     def function_start(self):
+        self.get_stocks_from_news()
+
+
+
+    def function_wiat(self):
+        self.Insert()
+
+        self.select("STOCKS")
+        self.get_code_list_by_market("KOSDAQ")  # 코스닥, 장내  구할려고
+
         try:
             with self.cur:
                 news_list = self.for_naver_finance_news_article_add_more(self.Url_list["네이버금융_주요뉴스"])
@@ -30,13 +40,24 @@ class KoreaInvestment():
         finally:
             self.con.close()
 
+    def get_stocks_from_news(self):
+        base_dict = dict()
+        base_dict["ANAL_YN"] = 'N'
 
+        news_tuple =self.select(TableName="myDB.NEWS", where_dict=base_dict, orderbyacslist =["SEQ"])
+        ''' 
+            SEQ          0
+            OCCR_DT      1      
+            OCCR_LOC     2
+            TITLE        3
+            URL          4
+            TEXT         5
+            ANAL_YN      6
+            EXTR_YN      7
+            EXTR_STCK_NM 8
+            IMG_URL_LIST 9
+        '''
 
-    def function_wiat(self):
-        self.Insert()
-
-        self.select("STOCKS")
-        self.get_code_list_by_market("KOSDAQ")  # 코스닥, 장내  구할려고
 
 
 
@@ -71,6 +92,9 @@ class KoreaInvestment():
 
 
     def Kiwi_morphological_analysis(self):
+        N = ['NNG', 'NNP', 'NNB', 'NR', 'NP', 'SL']
+        V = ['VV', 'VA','VX','VCP','VCN']
+
         print("test")
 
     def ConnectMySql(self,host,user,pwd):
@@ -145,14 +169,34 @@ class KoreaInvestment():
         # DB 연결 종료
         # self.con.close()
 
-    def select(self,TableName='',Market='',Symbol=''):
-        temp_str = f"SELECT * FROM {TableName} A WHERE ( '{Market}' = '' or A.Market = '{Market}')and ('{Symbol}'= '' or A.Symbol ='{Symbol}');"
+    def select(self,TableName='',where_dict =dict(),orderbyacslist =list()):
 
+        # temp_str = f"SELECT * FROM {TableName} A WHERE ( '{Market}' = '' or A.Market = '{Market}')and ('{Symbol}'= '' or A.Symbol ='{Symbol}');"
+        temp_str = f"SELECT * FROM {TableName} A "
+
+        # where절 추가하기 key,value값없으면 그냥 조회한다
+        if len(where_dict) != 0 :
+            temp_str += "WHERE 1=1 "
+            for key,value in where_dict.items():
+                if type(value) == str:
+                    temp_str += f"AND A.{key} = \'{value}\'"
+                else:
+                    temp_str += f"AND A.{key} = {value}"
+
+        # order by 추가하기
+        if len(orderbyacslist) != 0:
+            temp_str += "order by "
+            for one_value in orderbyacslist:
+                temp_str += f"{one_value} ,"
+            temp_str = temp_str[:-1]
+
+
+
+        print(temp_str)
         try:
             self.cur.execute(temp_str)
             rows = self.cur.fetchall()
-            for row in rows:
-                print(row)
+            return rows
 
         except pymysql.Error as err:
             print("Something went wrong: {}".format(err))
