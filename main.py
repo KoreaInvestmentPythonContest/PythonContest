@@ -18,17 +18,12 @@ class KoreaInvestment():
         self.Dcon =self.ConnectMySqlForDataFrame(self.MySqlGuest["host"],self.MySqlGuest["user"],self.MySqlGuest["password"])
 
     def function_start(self):
-        # try:
-        #     with self.cur:
-        #         news_list = self.for_naver_finance_news_article_add_more(self.Url_list["네이버금융_주요뉴스"])
-        #         for one_news_dict in news_list:
-        #             self.Insert(table_name="myDB.NEWS", dict=one_news_dict)
-        #
-        #     # DB 연결 종료
-        # finally:
-        #     self.con.close()
+        try:
+            self.get_news_from_crawling(self.Url_list["네이버금융_주요뉴스"])
+            self.extr_stocks_from_news()  # db에 있는 NEWS들중에 종목 안된 종목 추출
+        finally:
+            self.con.close()
 
-        self.get_stocks_from_news() # db에 있는 NEWS들중에 종목 안된 종목 추출
 
     def function_wiat(self):
         self.Insert()
@@ -36,17 +31,15 @@ class KoreaInvestment():
         self.select("STOCKS")
         self.get_code_list_by_market("KOSDAQ")  # 코스닥, 장내  구할려고
 
-        try:
-            with self.cur:
-                news_list = self.for_naver_finance_news_article_add_more(self.Url_list["네이버금융_주요뉴스"])
-                for one_news_dict in news_list:
-                    self.Insert(table_name="myDB.NEWS",dict=one_news_dict)
+        self.extr_stocks_from_news() # db에 있는 NEWS들중에 종목 안된 종목 추출
+        self.get_news_from_crawling(self.Url_list["네이버금융_주요뉴스"])
 
-        # DB 연결 종료
-        finally:
-            self.con.close()
+    def get_news_from_crawling(self,url_name):
+        news_list = self.for_naver_finance_news_article_add_more(url_name)
+        for one_news_dict in news_list:
+            self.Insert(table_name="myDB.NEWS", dict=one_news_dict)
 
-    def get_stocks_from_news(self):
+    def extr_stocks_from_news(self):
         base_dict = dict()
         base_dict["ANAL_YN"] = 'N'
         news_tuple =self.select(TableName="myDB.NEWS",selectList=["SEQ","OCCR_DT","TITLE","TEXT"],where_dict=base_dict, orderbyacsList=["SEQ","OCCR_DT"])
@@ -102,13 +95,12 @@ class KoreaInvestment():
 
             test_list.append(test_dict)
 
-        print(test_list)
-        # for idx, one_dict  in enumerate(test_list):
-        #     if len(one_dict['Symbol']) == 0: #추출된 종목이 없을때
-        #         self.update(TableName="myDB.NEWS",setDict={"ANAL_YN": "Y", "EXTR_YN": "N"},where_dict={"SEQ": one_dict['SEQ']})
-        #     else:
-        #         self.update(TableName="myDB.NEWS", setDict={"ANAL_YN": "Y", "EXTR_YN": "Y", "EXTR_STCK_CD_LIST": one_dict['Symbol']},
-        #                     where_dict={"SEQ": one_dict['SEQ']})
+        for idx, one_dict  in enumerate(test_list):
+            if len(one_dict['Symbol']) == 0: #추출된 종목이 없을때
+                self.update(TableName="myDB.NEWS",setDict={"ANAL_YN": "Y", "EXTR_YN": "N"},where_dict={"SEQ": one_dict['SEQ']})
+            else:
+                self.update(TableName="myDB.NEWS", setDict={"ANAL_YN": "Y", "EXTR_YN": "Y", "EXTR_STCK_CD_LIST": one_dict['Symbol']},
+                            where_dict={"SEQ": one_dict['SEQ']})
 
     def get_code_list_by_market(self, market_code):
         '''
@@ -242,9 +234,7 @@ class KoreaInvestment():
                 temp_str += f"{one_value} ,"
             temp_str = temp_str[:-1]
 
-
-
-        print(temp_str)
+        # print(temp_str)
         try:
             self.cur.execute(temp_str)
             rows = self.cur.fetchall()
