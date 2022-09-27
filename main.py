@@ -5,9 +5,7 @@ from config.Market import *
 from ignore.config import *
 import FinanceDataReader as fdr
 import pymysql
-
 from bs4 import BeautifulSoup
-from kiwipiepy import Kiwi
 import requests
 class KoreaInvestment():
     def __init__(self):
@@ -20,7 +18,17 @@ class KoreaInvestment():
         self.Dcon =self.ConnectMySqlForDataFrame(self.MySqlGuest["host"],self.MySqlGuest["user"],self.MySqlGuest["password"])
 
     def function_start(self):
-        self.get_stocks_from_news()
+        # try:
+        #     with self.cur:
+        #         news_list = self.for_naver_finance_news_article_add_more(self.Url_list["네이버금융_주요뉴스"])
+        #         for one_news_dict in news_list:
+        #             self.Insert(table_name="myDB.NEWS", dict=one_news_dict)
+        #
+        #     # DB 연결 종료
+        # finally:
+        #     self.con.close()
+
+        self.get_stocks_from_news() # db에 있는 NEWS들중에 종목 안된 종목 추출
 
     def function_wiat(self):
         self.Insert()
@@ -61,16 +69,46 @@ class KoreaInvestment():
             test_dict = dict()
             test_dict["SEQ"] = one_news_tuple[SEQ]
             test_dict["Symbol"] = list()
+            # 같은 위치에서 발견되는 종목 삭제하기 위해서
+            # ex: LG, LG화학
+            idx_list = list() #지울수도
+            dup_dict=dict()
+
             for stock_idx, one_stock_tuple in enumerate(stocks_tuple):
-                if one_news_tuple[TEXT].find(one_stock_tuple[Name]) != -1:#발견시
-                    test_dict["Symbol"].append(one_stock_tuple[Symbol])
+                # 같은 위치에서 발견되는 중복종목삭제
+                find_idx = one_news_tuple[TEXT].find(one_stock_tuple[Name])
+                if find_idx != -1:#발견시
+                    idx_list.append(find_idx)
+                    # find_index 기반으로 [5] =[005930, 001234]
+                    if find_idx not in dup_dict :
+                        dup_dict[find_idx] =[one_stock_tuple[Symbol]]
+                    else:
+                        dup_dict[find_idx].append([one_stock_tuple[Symbol]])
+
+
+            for key, symbol_list  in dup_dict.items():
+                #key =5 , symbol_list =[005930, 001234]
+                max_name_symbol = ('','000000')
+
+                if len(symbol_list) > 1 : # 2개 값 가지고있을때
+                    for symbol in symbol_list:
+                        for one_tuple in stocks_tuple:
+                            if symbol in one_tuple:
+                                if len(max_name_symbol[0]) <= len(one_tuple[Name]):
+                                    max_name_symbol= (one_tuple[Name], one_tuple[Symbol])
+                    test_dict["Symbol"].append(max_name_symbol[1])
+                else: # 리스트의 값이 1개일때
+                    test_dict["Symbol"].append(symbol_list[0])
+
             test_list.append(test_dict)
-        for idx, one_dict  in enumerate(test_list):
-            if len(one_dict['Symbol']) == 0: #추출된 종목이 없을때
-                self.update(TableName="myDB.NEWS",setDict={"ANAL_YN":"Y", "EXTR_YN":"N"},where_dict={"SEQ":one_dict['SEQ']})
-            else:
-                self.update(TableName="myDB.NEWS", setDict={"ANAL_YN":"Y","EXTR_YN":"Y","EXTR_STCK_CD_LIST": one_dict['Symbol']},
-                            where_dict={"SEQ": one_dict['SEQ']})
+
+        print(test_list)
+        # for idx, one_dict  in enumerate(test_list):
+        #     if len(one_dict['Symbol']) == 0: #추출된 종목이 없을때
+        #         self.update(TableName="myDB.NEWS",setDict={"ANAL_YN": "Y", "EXTR_YN": "N"},where_dict={"SEQ": one_dict['SEQ']})
+        #     else:
+        #         self.update(TableName="myDB.NEWS", setDict={"ANAL_YN": "Y", "EXTR_YN": "Y", "EXTR_STCK_CD_LIST": one_dict['Symbol']},
+        #                     where_dict={"SEQ": one_dict['SEQ']})
 
     def get_code_list_by_market(self, market_code):
         '''
@@ -101,12 +139,6 @@ class KoreaInvestment():
         # # Todo: 시장 종목 이름 업데이트 필요 있음
         # Market_name.Market["Name_Code"]
 
-
-    def Kiwi_morphological_analysis(self):
-        N = ['NNG', 'NNP', 'NNB', 'NR', 'NP', 'SL']
-        V = ['VV', 'VA','VX','VCP','VCN']
-
-        print("test")
 
     def ConnectMySql(self,host,user,pwd):
         con = pymysql.connect(host=host, user=user, password=pwd,
