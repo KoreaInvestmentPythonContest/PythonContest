@@ -2,7 +2,8 @@ from main import *
 
 import sys
 
-class Ui_class():
+
+class Ui_class:
     def __init__(self):
         print("Ui_class 입니다")
         self.KoreaInvestment = KoreaInvestment()
@@ -10,4 +11,4 @@ class Ui_class():
 
 
 if __name__ == "__main__":
-    ui_class =Ui_class()
+    ui_class = Ui_class()
