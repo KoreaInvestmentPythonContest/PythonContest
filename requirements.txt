@@ -11,8 +11,10 @@ finance-datareader==0.9.34
 greenlet==1.1.3
 idna @ file:///tmp/build/80754af9/idna_1637925883363/work
 importlib-metadata==4.12.0
+JPype1==1.4.0
 kiwipiepy==0.14.0
 kiwipiepy-model==0.14.0
+konlpy==0.6.0
 lxml==4.9.1
 numpy==1.21.6
 pandas==1.3.5
