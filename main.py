@@ -1,17 +1,16 @@
 from datetime import datetime
 import re
 from config.UrlList import *
-from config.Market import *
 from ignore.config import *
 import FinanceDataReader as fdr
 import pymysql
 from bs4 import BeautifulSoup
 import requests
+
 class KoreaInvestment():
     def __init__(self):
         super().__init__()
-        self.market = Market_name.Market
-        self.Url_list = Url_List.Url
+        self.Url_dict = Url.Url_dict
         self.config = config()
         self.MySqlGuest = self.config["MySqlGuest"] #host, user, password
         self.con, self.cur =self.ConnectMySql(self.MySqlGuest["host"],self.MySqlGuest["user"],self.MySqlGuest["password"])
@@ -19,23 +18,32 @@ class KoreaInvestment():
 
     def function_start(self):
         try:
-            self.get_news_from_crawling(self.Url_list["네이버금융_주요뉴스"])
-            self.extr_stocks_from_news()  # db에 있는 NEWS들중에 종목 안된 종목 추출
+            for url_name, url_info in self.Url_dict.items():
+                url = url_info["URL"]
+                url_class_name = url_info["ClassName"]
+                self.get_news_from_crawling(url, url_name, url_class_name)
+
+            self.extr_stocks_from_news()  # db에 있는 NEWS들중에 종목 추출 안된 종목 추출
         finally:
             self.con.close()
 
 
     def function_wiat(self):
         self.Insert()
-
         self.select("STOCKS")
         self.get_code_list_by_market("KOSDAQ")  # 코스닥, 장내  구할려고
 
-        self.extr_stocks_from_news() # db에 있는 NEWS들중에 종목 안된 종목 추출
-        self.get_news_from_crawling(self.Url_list["네이버금융_주요뉴스"])
 
-    def get_news_from_crawling(self,url_name):
-        news_list = self.for_naver_finance_news_article_add_more(url_name)
+    def get_news_from_crawling(self,url, url_name, ul_class_name):
+        if url_name == "네이버금융_주요뉴스":
+            news_list = self.for_naver_finance_news_article_add_more(url, url_name, ul_class_name)
+        else:
+            news_list = self.for_naver_finance_news_article_other(url, url_name, ul_class_name)
+
+        #한 네이버 페이지 본문,img_link update
+        self.update_detail_information(news_list)
+        print(news_list)
+
         for one_news_dict in news_list:
             self.Insert(table_name="myDB.NEWS", dict=one_news_dict)
 
@@ -52,7 +60,7 @@ class KoreaInvestment():
         TITLE   = 2
         TEXT    = 3
 
-        #STOCKS
+        #STOCKS순서
         Market = 0
         Symbol = 1
         Name   = 2
@@ -277,13 +285,14 @@ class KoreaInvestment():
             print("Something went wrong: {}".format(err))
             self.con.rollback()
 
-    def get_html(self,url):
-        headers = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"}
-        response = requests.get(url)
-        # response = requests.get(url, headers=headers)
+    def get_html(self, url):
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36"}
+        # response = requests.get(url)
+        response = requests.get(url, headers=headers)
         return response
 
     def parser(self, html):
+        # return BeautifulSoup(html.content.decode('utf-8', 'replace'), 'html.parser')
         return BeautifulSoup(html.content.decode('euc-kr', 'replace'),'html.parser')
 
 
@@ -291,84 +300,64 @@ class KoreaInvestment():
         return data.find(tag,name)
 
 
-
-    def for_naver_finance_news_article(self,url):
-        soup = self.parser(self.get_html(url))
-        a_tag_list = soup.find("div", "news_area").find_all("a", recursive=True)
-        news_list = list()
-
-        for idx, one_news in enumerate(a_tag_list):
-            news = re.findall('href="(.+?)">(.+?)</a>', str(one_news))[0]
-            link = news[0].replace("amp;", "")  # 네이버 링크에서 amp;라는 것 때문에 접근이 불가능하여 별도 처리
-            print("link",link)
-            news_list.append({ "title" : news[1],
-                                "link" : url+link[:link.find(r'"')]
-                             })
-
-        # print(news_list)
-        for idx, one_news in enumerate(news_list):
-            # if idx == 0:
-            article_link = one_news["link"]
-            soup_1 = self.parser(self.get_html(article_link))
-            main_article_html = soup_1.find("div",id="content")
-            # print(idx,one_news,main_article_html)
-            # main_article_html.find('div',class_='link_news').decompose()
-            # main_article = main_article_html.text
-            # news_list[idx]["main_text"] = main_article
-
-
-
-
-        return news_list
-
-    def for_naver_finance_news_article_add_more(self,url):
-        soup = self.parser(self.get_html(url))
-        new_area_text = soup.find("ul", class_="newsList").find_all("li", recursive=False)
-        news_list = list()
-
-
-        for idx, one_news in enumerate(new_area_text):
-            # if idx == 2:
-            a_tags =one_news.find_all("a", recursive=True)
-            news = re.findall('href="(.+?)">(.+?)</a>', str(a_tags))[-1]
-            # print(f"news: {news}")
-            link = news[0].replace("amp;", "")  # 네이버 링크에서 amp;라는 것 때문에 접근이 불가능하여 별도 처리
-            # print(f"link: {link}")
-            news_list.append({"OCCR_DT": datetime.today().strftime("%Y%m%d"),
-                              "TITLE": news[1],
-                              "OCCR_LOC" : "네이버금융_주요뉴스",
-                              "URL": url[:url.find('/news/mainnews.naver')] + link
-                              })
-
-        # print(f"new_list : {news_list}")
+    def update_detail_information(self,news_list):
         for idx, one_news in enumerate(news_list):
             img_url_list = list()
-            # if idx == 0:
             article_link = one_news["URL"]
             soup_1 = self.parser(self.get_html(article_link))
-            main_article_html = soup_1.find("div",id="content")
-            img_links =main_article_html.find_all("img", recursive=True)
+            main_article_html = soup_1.find("div", id="content")
+            img_links = main_article_html.find_all("img", recursive=True)
 
-            #이미지가 없을경우
+            # 이미지가 없을경우
             if len(img_links) != 0:
-
                 for idx2, img_link in enumerate(img_links):
                     img_url_list.append(img_link['src'])
 
-            main_article_html.find('div',class_='link_news').decompose() #뒤에 잡다한 데이터가 들어와서
+            main_article_html.find('div', class_='link_news').decompose()  # 뒤에 잡다한 데이터가 들어와서
 
             # main_article = main_article_html.text.replace("\n","").replace("\t","")
             main_article = main_article_html.text.replace("\t", "")
             news_list[idx]["TEXT"] = main_article.strip()
             news_list[idx]["IMG_URL_LIST"] = ''.join(img_url_list)
-            # print(news_list[idx])
+
+        return news_list
+
+    def for_naver_finance_news_article_other(self, url,url_name, ul_class_name):
+
+        soup = self.parser(self.get_html(url))
+        new_area_text = soup.find("ul", class_=ul_class_name).find("dl")
+
+        news_list = list()
+        for child in new_area_text.findChildren():
+            #네이버증권의 [뉴스포커스] 탭은  'thumb(image), articleSubject(제목),articleSummary(요약)으로 이루어져있다.
+            child_class = child.get("class")[0] if child.get("class") != None else " "
+            if child_class == 'articleSubject':
+                link = re.findall('href="(.+?)"', str(child))[0]
+                title = re.findall("title=(.+?)</a>", str(child))[0]
+                link = link.replace("amp;", "").replace("§","&sect")  # 네이버 링크에서 amp;라는 것 때문에 접근이 불가능하여 별도 처리  &sect -> § 처리됨
+                news_list.append({"OCCR_DT": datetime.today().strftime("%Y%m%d"),
+                                  "TITLE": title,
+                                  "OCCR_LOC": url_name,
+                                  "URL":  url[:url.find('/news/news_list')] + link
+                                  })
 
         return news_list
 
 
+    def for_naver_finance_news_article_add_more(self, url,url_name, ul_class_name):
+        soup = self.parser(self.get_html(url))
+        new_area_text = soup.find("ul", class_=ul_class_name).find_all("li", recursive=False)
+        news_list = list()
 
+        for idx, one_news in enumerate(new_area_text):
+            a_tags =one_news.find_all("a", recursive=True)
 
+            news = re.findall('href="(.+?)">(.+?)</a>', str(a_tags))[-1]
+            link = news[0].replace("amp;", "").replace("§", "&sect")  # 네이버 링크에서 amp;라는 것 때문에 접근이 불가능하여 별도 처리  &sect -> § 처리됨
+            news_list.append({"OCCR_DT": datetime.today().strftime("%Y%m%d"),
+                              "TITLE": news[1],
+                              "OCCR_LOC" : url_name,
+                              "URL": url[:url.find('/news/mainnews.naver')] + link
+                              })
 
-
-
-
+        return news_list
