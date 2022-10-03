@@ -42,17 +42,18 @@ class KoreaInvestment():
 
         #한 네이버 페이지 본문,img_link update
         self.update_detail_information(news_list)
+
         print(news_list)
 
         for one_news_dict in news_list:
             self.Insert(table_name="myDB.NEWS", dict=one_news_dict)
 
-    def extr_stocks_from_news(self):
+    def extr_stocks_from_news(self):# db에 있는 NEWS들중에 종목 추출 안된 종목 추출
         base_dict = dict()
         base_dict["ANAL_YN"] = 'N'
-        news_tuple =self.select(TableName="myDB.NEWS",selectList=["SEQ","OCCR_DT","TITLE","TEXT"],where_dict=base_dict, orderbyacsList=["SEQ","OCCR_DT"])
+        news_tuple =self.select(TableName="myDB.NEWS",selectList=["SEQ", "OCCR_DT", "TITLE","TEXT"],where_dict=base_dict, orderbyacsList=["SEQ", "OCCR_DT"])
         base_dict =dict()
-        stocks_tuple = self.select(TableName="myDB.STOCKS",selectList=["Market","Symbol","Name"], orderbyacsList=["Market","Symbol","Name"])
+        stocks_tuple = self.select(TableName="myDB.STOCKS",selectList=["Market", "Symbol","Name"], orderbyacsList=["Market", "Symbol", "Name"])
 
         #NEWS순서
         SEQ     = 0
@@ -154,13 +155,8 @@ class KoreaInvestment():
         conn = db_connection.connect()
         return conn
 
-    def Insert(self,table_name='',dict=dict()):
+    def Insert(self,table_name='', dict=dict()):
         #key :col_name, value : data
-        test_dict = {'Market': 'KOSPI', 'Symbol': '006840', 'Name': 'AK홀딩스', 'Sector': '기타 금융업', 'Industry': '지주사업',
-                     'ListingDate': '19990811', 'SettleMonth': '12', 'Representative': '채형석, 이석주(각자 대표이사)',
-                     'HomePage': 'http://www.aekyunggroup.co.kr'}
-
-
 
         temp_str = f"INSERT INTO {table_name}("
         for key, value in dict.items():
@@ -182,9 +178,6 @@ class KoreaInvestment():
             print("Something went wrong: {}".format(err))
             self.con.rollback()
 
-        # DB 연결 종료
-        # finally:
-        #     self.con.close()
 
     def InsertFromSelect(self, table_name, dict):
         # key :col_name, value : data
@@ -325,7 +318,7 @@ class KoreaInvestment():
     def for_naver_finance_news_article_other(self, url,url_name, ul_class_name):
 
         soup = self.parser(self.get_html(url))
-        new_area_text = soup.find("ul", class_=ul_class_name).find("dl")
+        new_area_text = soup.find("ul", class_=ul_class_name).find("dl") # url에 해당되는 HTML에 맞는 태그 찾기
 
         news_list = list()
         for child in new_area_text.findChildren():
@@ -346,7 +339,7 @@ class KoreaInvestment():
 
     def for_naver_finance_news_article_add_more(self, url,url_name, ul_class_name):
         soup = self.parser(self.get_html(url))
-        new_area_text = soup.find("ul", class_=ul_class_name).find_all("li", recursive=False)
+        new_area_text = soup.find("ul", class_=ul_class_name).find_all("li", recursive=False)# url에 해당되는 HTML에 맞는 태그 찾기
         news_list = list()
 
         for idx, one_news in enumerate(new_area_text):
